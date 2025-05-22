@@ -7,7 +7,6 @@ from collections import defaultdict, deque
 import time
 import math
 
-# Try to import optional dependencies
 try:
     import cv2
     CV2_AVAILABLE = True
@@ -27,9 +26,8 @@ try:
 except ImportError:
     PLOTLY_AVAILABLE = False
 
-# Page configuration
 st.set_page_config(
-    page_title="Reckless Driving Safety Monitor",
+    page_title="Road Safety Monitoring",
     page_icon="🚗",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -56,7 +54,6 @@ class SafetyAnalyzer:
         vehicles = []
         pedestrians = []
         
-        # Process detections
         for detection in detections:
             bbox = detection['bbox']
             class_id = detection['class_id']
@@ -80,13 +77,12 @@ class SafetyAnalyzer:
         for ped in pedestrians:
             for veh in vehicles:
                 distance = self.calculate_pixel_distance(ped['bbox'], veh['bbox'])
-                # Convert pixel distance to approximate real distance (simplified)
-                real_distance = distance * 0.01  # Rough conversion factor
+                real_distance = distance * 0.01  
                 
                 # Collision detection (gap = 0 or very close)
                 if real_distance <= 0.2:  # Very close threshold for collision
                     safety_status = "COLLISION DETECTED"
-                    violations.append("🚨 COLLISION DETECTED - Vehicle and pedestrian collision!")
+                    violations.append("COLLISION DETECTED - Vehicle and pedestrian collision!")
                     collision_detected = True
                 elif real_distance < self.PEDESTRIAN_DISTANCE:
                     # Estimate time to collision based on assumed speeds
@@ -99,7 +95,7 @@ class SafetyAnalyzer:
                         
                         if time_to_collision <= self.COLLISION_WARNING_TIME:
                             safety_status = "COLLISION WARNING"
-                            violations.append(f"⚠️ COLLISION WARNING - {time_to_collision:.1f}s until potential impact!")
+                            violations.append(f"⚠COLLISION WARNING - {time_to_collision:.1f}s until potential impact!")
                             collision_warning = True
                         else:
                             safety_status = "Unsafe"
@@ -116,22 +112,21 @@ class SafetyAnalyzer:
                 
                 # Vehicle collision detection
                 if real_distance <= 0.3:  # Very close threshold for vehicle collision
-                    if not collision_detected:  # Don't override pedestrian collision
+                    if not collision_detected:  
                         safety_status = "COLLISION DETECTED"
-                    violations.append("🚨 COLLISION DETECTED - Vehicle-to-vehicle collision!")
+                    violations.append("COLLISION DETECTED - Vehicle-to-vehicle collision!")
                     collision_detected = True
                 else:
                     # Tailgating and collision warning
                     assumed_speed = 13.89  # 50 km/h in m/s
                     time_gap = real_distance / assumed_speed if assumed_speed > 0 else 0
                     
-                    # Collision warning for vehicles
                     if time_gap <= self.COLLISION_WARNING_TIME and real_distance < 5:
                         if not collision_detected and not collision_warning:
                             safety_status = "COLLISION WARNING"
-                        violations.append(f"⚠️ COLLISION WARNING - {time_gap:.1f}s gap between vehicles!")
+                        violations.append(f"⚠COLLISION WARNING - {time_gap:.1f}s gap between vehicles!")
                         collision_warning = True
-                    elif time_gap < self.TAILGATING_TIME and real_distance < 15:  # 15m threshold
+                    elif time_gap < self.TAILGATING_TIME and real_distance < 15: 
                         if safety_status == "Safe":
                             safety_status = "Unsafe"
                         violations.append(f"Tailgating detected ({time_gap:.2f}s gap, {real_distance:.2f}m)")
@@ -155,8 +150,7 @@ def load_yolo_model(model_path="FinalModel_yolov8.pt"):
         return "demo_mode"
         
     try:
-        # For demo purposes, use a pretrained model
-        model = YOLO('yolov8n.pt')  # This will download automatically
+        model = YOLO('yolov8n.pt') 
         st.info("✅ Using YOLOv8n pretrained model")
         return model
     except Exception as e:
@@ -166,7 +160,6 @@ def load_yolo_model(model_path="FinalModel_yolov8.pt"):
 def run_detection(model, image, conf_threshold=0.5, iou_threshold=0.45):
     """Run YOLOv8 detection on image"""
     if not YOLO_AVAILABLE or model == "demo_mode" or model is None:
-        # Return dummy detections for demo
         height, width = image.shape[:2] if len(image.shape) > 2 else (400, 600)
         return [
             {'bbox': [width*0.1, height*0.3, width*0.4, height*0.7], 'confidence': 0.85, 'class_id': 0, 'track_id': 1},  # vehicle
@@ -174,7 +167,6 @@ def run_detection(model, image, conf_threshold=0.5, iou_threshold=0.45):
         ]
     
     try:
-        # Convert PIL image to numpy array if needed
         if isinstance(image, Image.Image):
             image = np.array(image)
             
@@ -189,13 +181,13 @@ def run_detection(model, image, conf_threshold=0.5, iou_threshold=0.45):
                     conf = boxes.conf[i].cpu().numpy()
                     cls = int(boxes.cls[i].cpu().numpy())
                     
-                    # Map COCO classes to our classes (person=0->1, car/truck/bus=2,5,7->0)
-                    if cls == 0:  # person
-                        class_id = 1  # pedestrian
-                    elif cls in [2, 5, 7]:  # car, bus, truck
-                        class_id = 0  # vehicle
+                   
+                    if cls == 0:  
+                        class_id = 1 
+                    elif cls in [2, 5, 7]: 
+                        class_id = 0  
                     else:
-                        continue  # skip other classes
+                        continue  
                     
                     detections.append({
                         'bbox': box,
@@ -221,7 +213,6 @@ def draw_safety_annotations(image, detections, safety_status, violations):
     else:
         img_copy = image.copy()
     
-    # Enhanced color coding (BGR format for OpenCV)
     colors = {
         'Vehicle': (0, 255, 0),  # Green
         'Pedestrian': (255, 0, 0),  # Blue  
@@ -230,7 +221,6 @@ def draw_safety_annotations(image, detections, safety_status, violations):
         'COLLISION DETECTED': (0, 0, 255)  # Red
     }
     
-    # Choose overall color based on safety status
     if safety_status == "COLLISION DETECTED":
         status_color = colors['COLLISION DETECTED']
         bbox_color = colors['COLLISION DETECTED']
@@ -241,7 +231,7 @@ def draw_safety_annotations(image, detections, safety_status, violations):
         status_color = colors['Unsafe']
         bbox_color = colors['Unsafe']
     else:
-        status_color = (0, 255, 0)  # Green for safe
+        status_color = (0, 255, 0)  
         bbox_color = None
     
     for detection in detections:
@@ -251,16 +241,12 @@ def draw_safety_annotations(image, detections, safety_status, violations):
         
         x1, y1, x2, y2 = map(int, bbox)
         
-        # Choose color - use status color if dangerous, otherwise class color
         color = bbox_color if bbox_color else colors[class_name]
         
-        # Make bounding box thicker for dangerous situations
         thickness = 4 if safety_status in ["COLLISION DETECTED", "COLLISION WARNING"] else 2
         
-        # Draw bounding box
         cv2.rectangle(img_copy, (x1, y1), (x2, y2), color, thickness)
         
-        # Draw label
         label = f"{class_name}: {confidence:.2f}"
         label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
         cv2.rectangle(img_copy, (x1, y1 - label_size[1] - 10), 
@@ -268,17 +254,14 @@ def draw_safety_annotations(image, detections, safety_status, violations):
         cv2.putText(img_copy, label, (x1, y1 - 5), 
                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
     
-    # Draw safety status with enhanced styling
     font_scale = 1.2 if safety_status in ["COLLISION DETECTED", "COLLISION WARNING"] else 1
     thickness = 3 if safety_status in ["COLLISION DETECTED", "COLLISION WARNING"] else 2
     
     cv2.putText(img_copy, f"Status: {safety_status}", (10, 40), 
                cv2.FONT_HERSHEY_SIMPLEX, font_scale, status_color, thickness)
     
-    # Draw violations with better visibility
     for i, violation in enumerate(violations):
         y_pos = 80 + i * 35
-        # Add background rectangle for better text visibility
         text_size = cv2.getTextSize(violation[:60], cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
         cv2.rectangle(img_copy, (8, y_pos - 25), (text_size[0] + 15, y_pos + 5), (0, 0, 0), -1)
         
@@ -292,16 +275,7 @@ def main():
     st.title("🚗 Reckless Driving Safety Monitor")
     st.markdown("**Research Title:** Reckless Driving Behavior Recognition For Road Safety Monitoring")
     
-    # Show system status
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("OpenCV", "✅ Available" if CV2_AVAILABLE else "❌ Not Available") 
-    with col2:
-        st.metric("YOLO", "✅ Available" if YOLO_AVAILABLE else "⚠️ Demo Mode")
-    with col3:
-        st.metric("Plotly", "✅ Available" if PLOTLY_AVAILABLE else "❌ Basic Charts")
     
-    # Sidebar for navigation
     st.sidebar.title("Navigation")
     page = st.sidebar.selectbox("Choose a page", [
         "Real-time Detection",
@@ -316,7 +290,6 @@ def main():
 def real_time_detection_page():
     st.header("🎥 Real-time Detection")
     
-    # Model loading section
     st.subheader("Model Configuration")
     col1, col2 = st.columns(2)
     
@@ -333,11 +306,9 @@ def real_time_detection_page():
         confidence_threshold = st.slider("Confidence Threshold", 0.1, 1.0, 0.5)
         iou_threshold = st.slider("IoU Threshold", 0.1, 1.0, 0.45)
     
-    # Initialize model if not exists
     if 'model' not in st.session_state:
         st.session_state.model = load_yolo_model(model_path)
     
-    # Enhanced safety information
     st.subheader("🛡️ Enhanced Safety Monitoring")
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -347,7 +318,6 @@ def real_time_detection_page():
     with col3:  
         st.error("**🚨 Collision Alert**: Immediate collision detection")
     
-    # Upload options
     st.subheader("Input Source")
     input_type = st.radio("Choose input type:", ["Upload Image", "Upload Video"])
     
@@ -357,7 +327,6 @@ def real_time_detection_page():
         uploaded_file = st.file_uploader("Choose an image", type=['jpg', 'jpeg', 'png'])
         
         if uploaded_file is not None:
-            # Load image
             image = Image.open(uploaded_file)
             img_array = np.array(image)
             
@@ -371,13 +340,11 @@ def real_time_detection_page():
                 st.subheader("Detection Results")
                 
                 with st.spinner("Running detection..."):
-                    # Run detection
                     detections = run_detection(st.session_state.model, img_array, 
                                              confidence_threshold, iou_threshold)
                     
                     safety_status, violations = safety_analyzer.analyze_frame(img_array, detections)
                     
-                    # Draw annotations
                     if CV2_AVAILABLE:
                         annotated_img = draw_safety_annotations(img_array, detections, safety_status, violations)
                         st.image(annotated_img, use_column_width=True)
@@ -385,7 +352,6 @@ def real_time_detection_page():
                         st.image(img_array, use_column_width=True)
                         st.warning("OpenCV not available - showing original image")
                 
-                # Enhanced safety report
                 st.subheader("Safety Analysis")
                 if safety_status == "COLLISION DETECTED":
                     st.error("🚨 COLLISION DETECTED - Immediate danger!")
@@ -406,7 +372,6 @@ def real_time_detection_page():
                         else:
                             st.write(f"• {violation}")
                 
-                # Detection details
                 if detections:
                     st.subheader("Detection Details")
                     detection_data = []
@@ -427,7 +392,6 @@ def real_time_detection_page():
         if uploaded_video is not None:
             st.video(uploaded_video)
             
-            # Video processing parameters
             col1, col2 = st.columns(2)
             with col1:
                 frames_to_process = st.slider("Number of frames to process", 1, 20, 5)
@@ -439,7 +403,6 @@ def real_time_detection_page():
                     st.error("OpenCV is required for video processing.")
                     return
                     
-                # Save video temporarily
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_file:
                     tmp_file.write(uploaded_video.read())
                     video_path = tmp_file.name
@@ -452,7 +415,6 @@ def real_time_detection_page():
                     
                     st.info(f"📹 Video: {frame_count} frames, {fps:.1f} FPS")
                     
-                    # Process frames
                     progress_bar = st.progress(0)
                     safety_results = []
                     processed_frames = []
@@ -465,17 +427,13 @@ def real_time_detection_page():
                         if not ret:
                             break
                         
-                        # Process every nth frame
                         if frame_idx % frame_interval == 0:
-                            # Run detection
                             detections = run_detection(st.session_state.model, frame, 
                                                      confidence_threshold, iou_threshold)
                             safety_status, violations = safety_analyzer.analyze_frame(frame, detections)
                             
-                            # Draw annotations
                             annotated_frame = draw_safety_annotations(frame, detections, safety_status, violations)
                             
-                            # Store results
                             safety_results.append({
                                 'Frame': frame_idx,
                                 'Status': safety_status,
@@ -486,7 +444,6 @@ def real_time_detection_page():
                                 'Violation_Details': violations
                             })
                             
-                            # Convert BGR to RGB for display
                             annotated_frame_rgb = cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB)
                             processed_frames.append((frame_idx, annotated_frame_rgb, safety_status, violations))
                             
@@ -497,11 +454,9 @@ def real_time_detection_page():
                     
                     cap.release()
                     
-                    # Display results
                     if safety_results:
                         st.success(f"✅ Processed {len(safety_results)} frames!")
                         
-                        # Enhanced summary metrics
                         collision_frames = len([r for r in safety_results if r['Status'] == 'COLLISION DETECTED'])
                         warning_frames = len([r for r in safety_results if r['Status'] == 'COLLISION WARNING'])
                         unsafe_frames = len([r for r in safety_results if r['Status'] == 'Unsafe'])
@@ -517,21 +472,17 @@ def real_time_detection_page():
                         with col4:
                             st.metric("✅ Safe", safe_frames)
                         
-                        # Display processed frames
                         st.subheader("🎞️ Processed Frames with Advanced Safety Analysis")
                         
-                        # Show frames in a grid
                         for i, (frame_num, frame_img, status, violations) in enumerate(processed_frames):
                             st.markdown(f"### Frame {frame_num}")
                             
-                            # Create columns for frame and details
                             col1, col2 = st.columns([2, 1])
                             
                             with col1:
                                 st.image(frame_img, use_column_width=True)
                             
                             with col2:
-                                # Enhanced status indicator
                                 if status == "COLLISION DETECTED":
                                     st.error(f"🚨 {status}")
                                 elif status == "COLLISION WARNING":
@@ -541,13 +492,13 @@ def real_time_detection_page():
                                 else:
                                     st.warning(f"⚠️ {status}")
                                 
-                                # Frame details
+                               
                                 frame_result = safety_results[i]
                                 st.write(f"**Objects Detected:** {frame_result['Objects']}")
                                 st.write(f"**Vehicles:** {frame_result['Vehicles']}")
                                 st.write(f"**Pedestrians:** {frame_result['Pedestrians']}")
                                 
-                                # Enhanced violations display
+                                
                                 if violations:
                                     st.write("**Safety Alerts:**")
                                     for violation in violations:
@@ -562,14 +513,12 @@ def real_time_detection_page():
                             
                             st.divider()
                         
-                        # Results table
+                        
                         st.subheader("📊 Frame Analysis Summary")
                         df_results = pd.DataFrame(safety_results)
-                        # Remove the detailed violations column for display
                         df_display = df_results.drop('Violation_Details', axis=1)
                         st.dataframe(df_display, use_container_width=True)
                         
-                        # Download option
                         csv = df_display.to_csv(index=False)
                         st.download_button(
                             label="📥 Download Analysis Results",
@@ -581,7 +530,6 @@ def real_time_detection_page():
 def safety_analytics_page():
     st.header("📈 Safety Analytics Dashboard")
     
-    # Generate sample data with new safety categories
     np.random.seed(42)
     dates = pd.date_range('2024-01-01', periods=30, freq='D')
     
@@ -598,7 +546,6 @@ def safety_analytics_page():
     
     safety_data['Safety_Percentage'] = (safety_data['Safe_Incidents'] / safety_data['Total_Detections']) * 100
     
-    # Enhanced key metrics
     st.subheader("🎯 Advanced Safety Metrics")
     col1, col2, col3, col4 = st.columns(4)
     
@@ -636,7 +583,6 @@ def safety_analytics_page():
         
         col1, col2 = st.columns(2)
         with col1:
-            # Enhanced violation breakdown
             total_tailgating = safety_data['Tailgating'].sum()
             total_pedestrian = safety_data['Pedestrian_Violations'].sum()
             total_warnings = safety_data['Collision_Warnings'].sum()
@@ -654,7 +600,6 @@ def safety_analytics_page():
                         title="Recent Safety Activity")
             st.plotly_chart(fig, use_container_width=True)
     else:
-        # Basic Streamlit charts
         st.subheader("📊 Safety Trends (Basic)")
         chart_data = safety_data.set_index('Date')[['Safety_Percentage', 'Collision_Warnings', 'Collisions_Detected']]
         st.line_chart(chart_data)
@@ -675,31 +620,8 @@ def safety_analytics_page():
             recent = safety_data.tail(7).set_index('Date')[['Safe_Incidents', 'Unsafe_Incidents', 'Collision_Warnings', 'Collisions_Detected']]
             st.bar_chart(recent)
     
-    # Enhanced data table
-    st.subheader("📋 Detailed Safety Data")
+    st.subheader("📋 Raw Safety Data")
     st.dataframe(safety_data.sort_values('Date', ascending=False), use_container_width=True)
-    
-    # Safety recommendations
-    st.subheader("💡 Safety Recommendations")
-    
-    # Calculate risk levels
-    avg_collisions = safety_data['Collisions_Detected'].mean()
-    avg_warnings = safety_data['Collision_Warnings'].mean()
-    
-    if avg_collisions > 1:
-        st.error("🚨 **HIGH RISK**: Frequent collisions detected. Immediate safety interventions required!")
-        st.write("- Install additional warning systems")
-        st.write("- Implement speed reduction measures")
-        st.write("- Increase traffic enforcement")
-    elif avg_warnings > 3:
-        st.warning("⚠️ **MEDIUM RISK**: Regular collision warnings. Preventive measures recommended.")
-        st.write("- Improve road signage")
-        st.write("- Consider traffic calming measures")
-        st.write("- Enhance visibility at critical points")
-    else:
-        st.success("✅ **LOW RISK**: Safety levels are acceptable. Continue monitoring.")
-        st.write("- Maintain current safety measures")
-        st.write("- Regular safety audits recommended")
 
 if __name__ == "__main__":
     main()
