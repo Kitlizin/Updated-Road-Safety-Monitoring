@@ -9,6 +9,13 @@ import math
 from datetime import datetime, timedelta
 
 
+st.set_page_config(
+    page_title="Road Safety Monitoring",
+    page_icon="🚗",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
 class SafetyAnalyzer:
     def __init__(self, fps=30):
         self.prev_positions = {}
@@ -311,9 +318,9 @@ def real_time_detection_page():
                     st.subheader("Violations Detected")
                     for violation in violations:
                         if "COLLISION DETECTED" in violation:
-                            st.error(f"{violation}")
+                            st.error(f"🚨 {violation}")
                         elif "COLLISION WARNING" in violation:
-                            st.warning(f"{violation}")
+                            st.warning(f"⚠️ {violation}")
                         else:
                             st.write(f"• {violation}")
                 
@@ -429,13 +436,13 @@ def real_time_detection_page():
                             
                             with col2:
                                 if status == "COLLISION DETECTED":
-                                    st.error(f"{status}")
+                                    st.error(f"🚨 {status}")
                                 elif status == "COLLISION WARNING":
-                                    st.warning(f"{status}")
+                                    st.warning(f"⚠️ {status}")
                                 elif status == "Safe":
                                     st.success(f"✅ {status}")
                                 else:
-                                    st.warning(f"{status}")
+                                    st.warning(f"⚠️ {status}")
                                 
                                 frame_result = safety_results[i]
                                 st.write(f"**Objects Detected:** {frame_result['Objects']}")
@@ -446,9 +453,9 @@ def real_time_detection_page():
                                     st.write("**Safety Alerts:**")
                                     for violation in violations:
                                         if "COLLISION DETECTED" in violation:
-                                            st.error(f"{violation}")
+                                            st.error(f"🚨 {violation}")
                                         elif "COLLISION WARNING" in violation:
-                                            st.warning(f"{violation}")
+                                            st.warning(f"⚠️ {violation}")
                                         else:
                                             st.write(f"• {violation}")
                                 else:
