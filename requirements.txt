@@ -9,10 +9,3 @@ bytetrack-pytorch
 numpy
 opencv_python
 loguru
-tqdm
-torchvision
-thop
-ninja
-tabulate
-psutil
-tensorboard
