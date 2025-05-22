@@ -3,9 +3,9 @@ ultralytics
 opencv-python-headless
 numpy
 pillow
-av
 timm
 bytetrack-pytorch
 numpy
 opencv_python
 loguru
+shutil
