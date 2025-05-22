@@ -7,7 +7,6 @@ av
 timm
 bytetrack-pytorch
 numpy
-torch>=1.7
 opencv_python
 loguru
 tqdm
@@ -17,9 +16,3 @@ ninja
 tabulate
 psutil
 tensorboard
-
-# verified versions
-# pycocotools corresponds to https://github.com/ppwwyyxx/cocoapi
-pycocotools>=2.0.2
-onnx>=1.13.0
-onnx-simplifier==0.4.10
