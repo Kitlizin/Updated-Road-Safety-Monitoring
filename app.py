@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 import torch
 from ultralytics import YOLO
-from yolox.tracker.byte_tracker import BYTETracker
+from yolox_tracker.byte_tracker import BYTETracker
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 from PIL import Image
 
