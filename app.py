@@ -272,7 +272,7 @@ def draw_safety_annotations(image, detections, safety_status, violations):
     return img_copy
 
 def main():
-    st.title("🚗 Reckless Driving Safety Monitor")
+    st.title("🚗 Road Safety Monitoring")
     st.markdown("**Research Title:** Reckless Driving Behavior Recognition For Road Safety Monitoring")
     
     
