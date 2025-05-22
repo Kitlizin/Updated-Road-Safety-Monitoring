@@ -6,7 +6,6 @@ pillow
 av
 timm
 bytetrack-pytorch
-yolox
 numpy
 torch>=1.7
 opencv_python
