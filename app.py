@@ -6,46 +6,21 @@ from PIL import Image
 from collections import defaultdict, deque
 import time
 import math
+from datetime import datetime, timedelta
 
-try:
-    import cv2
-    CV2_AVAILABLE = True
-except ImportError:
-    CV2_AVAILABLE = False
-
-try:
-    from ultralytics import YOLO
-    YOLO_AVAILABLE = True
-except ImportError:
-    YOLO_AVAILABLE = False
-
-try:
-    import plotly.express as px
-    import plotly.graph_objects as go
-    PLOTLY_AVAILABLE = True
-except ImportError:
-    PLOTLY_AVAILABLE = False
-
-st.set_page_config(
-    page_title="Road Safety Monitoring",
-    page_icon="🚗",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
 class SafetyAnalyzer:
     def __init__(self, fps=30):
         self.prev_positions = {}
         self.fps = fps
-        self.TAILGATING_TIME = 2  # 2-second rule
-        self.PEDESTRIAN_DISTANCE = 1.0  # 1 meter
-        self.COLLISION_WARNING_TIME = 3  # 3-second warning
+        self.TAILGATING_TIME = 2
+        self.PEDESTRIAN_DISTANCE = 1.0
+        self.COLLISION_WARNING_TIME = 3
         self.SPEED_ESTIMATION_FRAMES = 5
         self.vehicle_history = defaultdict(lambda: deque(maxlen=self.SPEED_ESTIMATION_FRAMES))
         self.pedestrian_history = defaultdict(lambda: deque(maxlen=self.SPEED_ESTIMATION_FRAMES))
         
     def analyze_frame(self, frame, detections):
-        """Analyze frame for safety violations"""
         safety_status = "Safe"
         violations = []
         collision_warning = False
@@ -60,34 +35,31 @@ class SafetyAnalyzer:
             confidence = detection['confidence']
             track_id = detection.get('track_id', 0)
             
-            if class_id == 0:  # Vehicle
+            if class_id == 0:
                 vehicles.append({
                     'id': track_id,
                     'bbox': bbox,
                     'confidence': confidence
                 })
-            elif class_id == 1:  # Pedestrian
+            elif class_id == 1:
                 pedestrians.append({
                     'id': track_id,
                     'bbox': bbox,
                     'confidence': confidence
                 })
         
-        # Check pedestrian-vehicle distances and collision risks
         for ped in pedestrians:
             for veh in vehicles:
                 distance = self.calculate_pixel_distance(ped['bbox'], veh['bbox'])
                 real_distance = distance * 0.01  
                 
-                # Collision detection (gap = 0 or very close)
-                if real_distance <= 0.2:  # Very close threshold for collision
+                if real_distance <= 0.2:
                     safety_status = "COLLISION DETECTED"
                     violations.append("COLLISION DETECTED - Vehicle and pedestrian collision!")
                     collision_detected = True
                 elif real_distance < self.PEDESTRIAN_DISTANCE:
-                    # Estimate time to collision based on assumed speeds
-                    ped_speed = 2.0  # Average pedestrian speed m/s
-                    veh_speed = 13.89  # 50 km/h in m/s
+                    ped_speed = 2.0
+                    veh_speed = 13.89
                     relative_speed = abs(veh_speed - ped_speed)
                     
                     if relative_speed > 0:
@@ -104,21 +76,18 @@ class SafetyAnalyzer:
                         safety_status = "Unsafe"
                         violations.append(f"Vehicle too close to pedestrian ({real_distance:.2f}m)")
         
-        # Check vehicle-to-vehicle collisions and tailgating
         for i, veh1 in enumerate(vehicles):
             for j, veh2 in enumerate(vehicles[i+1:], i+1):
                 distance = self.calculate_pixel_distance(veh1['bbox'], veh2['bbox'])
-                real_distance = distance * 0.01  # Rough conversion factor
+                real_distance = distance * 0.01
                 
-                # Vehicle collision detection
-                if real_distance <= 0.3:  # Very close threshold for vehicle collision
+                if real_distance <= 0.3:
                     if not collision_detected:  
                         safety_status = "COLLISION DETECTED"
                     violations.append("COLLISION DETECTED - Vehicle-to-vehicle collision!")
                     collision_detected = True
                 else:
-                    # Tailgating and collision warning
-                    assumed_speed = 13.89  # 50 km/h in m/s
+                    assumed_speed = 13.89
                     time_gap = real_distance / assumed_speed if assumed_speed > 0 else 0
                     
                     if time_gap <= self.COLLISION_WARNING_TIME and real_distance < 5:
@@ -134,7 +103,6 @@ class SafetyAnalyzer:
         return safety_status, violations
     
     def calculate_pixel_distance(self, bbox1, bbox2):
-        """Calculate pixel distance between two bounding boxes"""
         x1, y1, x2, y2 = bbox1
         center1 = ((x1 + x2) / 2, (y1 + y2) / 2)
         
@@ -143,27 +111,26 @@ class SafetyAnalyzer:
         
         return math.sqrt((center1[0] - center2[0])**2 + (center1[1] - center2[1])**2)
 
-def load_yolo_model(model_path="FinalModel_yolov8.pt"):
-    """Load the trained YOLOv8 model"""
+@st.cache_resource
+def load_yolo_model():
     if not YOLO_AVAILABLE:
         st.info("🔄 YOLO not available - Running in demo mode")
         return "demo_mode"
         
     try:
         model = YOLO('yolov8n.pt') 
-        st.info("✅ Using YOLOv8n pretrained model")
+        st.success("✅ Model loaded successfully!")
         return model
     except Exception as e:
         st.error(f"Error loading model: {str(e)}")
         return None
 
 def run_detection(model, image, conf_threshold=0.5, iou_threshold=0.45):
-    """Run YOLOv8 detection on image"""
     if not YOLO_AVAILABLE or model == "demo_mode" or model is None:
         height, width = image.shape[:2] if len(image.shape) > 2 else (400, 600)
         return [
-            {'bbox': [width*0.1, height*0.3, width*0.4, height*0.7], 'confidence': 0.85, 'class_id': 0, 'track_id': 1},  # vehicle
-            {'bbox': [width*0.6, height*0.4, width*0.75, height*0.8], 'confidence': 0.75, 'class_id': 1, 'track_id': 2}   # pedestrian
+            {'bbox': [width*0.1, height*0.3, width*0.4, height*0.7], 'confidence': 0.85, 'class_id': 0, 'track_id': 1},
+            {'bbox': [width*0.6, height*0.4, width*0.75, height*0.8], 'confidence': 0.75, 'class_id': 1, 'track_id': 2}
         ]
     
     try:
@@ -181,7 +148,6 @@ def run_detection(model, image, conf_threshold=0.5, iou_threshold=0.45):
                     conf = boxes.conf[i].cpu().numpy()
                     cls = int(boxes.cls[i].cpu().numpy())
                     
-                   
                     if cls == 0:  
                         class_id = 1 
                     elif cls in [2, 5, 7]: 
@@ -202,7 +168,6 @@ def run_detection(model, image, conf_threshold=0.5, iou_threshold=0.45):
         return []
 
 def draw_safety_annotations(image, detections, safety_status, violations):
-    """Draw bounding boxes and safety annotations on image"""
     if not CV2_AVAILABLE:
         return image
         
@@ -214,11 +179,11 @@ def draw_safety_annotations(image, detections, safety_status, violations):
         img_copy = image.copy()
     
     colors = {
-        'Vehicle': (0, 255, 0),  # Green
-        'Pedestrian': (255, 0, 0),  # Blue  
-        'Unsafe': (0, 165, 255),  # Orange
-        'COLLISION WARNING': (0, 255, 255),  # Yellow
-        'COLLISION DETECTED': (0, 0, 255)  # Red
+        'Vehicle': (0, 255, 0),
+        'Pedestrian': (255, 0, 0),
+        'Unsafe': (0, 165, 255),
+        'COLLISION WARNING': (0, 255, 255),
+        'COLLISION DETECTED': (0, 0, 255)
     }
     
     if safety_status == "COLLISION DETECTED":
@@ -273,41 +238,14 @@ def draw_safety_annotations(image, detections, safety_status, violations):
 
 def main():
     st.title("🚗 Road Safety Monitoring")
-    st.markdown("**Research Title:** Reckless Driving Behavior Recognition For Road Safety Monitoring")
+    st.markdown("Reckless Driving Behavior Recognition For Road Safety Monitoring")
     
+    st.session_state.model = load_yolo_model()
     
-    st.sidebar.title("Navigation")
-    page = st.sidebar.selectbox("Choose a page", [
-        "Real-time Detection",
-        "Safety Analytics"
-    ])
-    
-    if page == "Real-time Detection":
-        real_time_detection_page()
-    elif page == "Safety Analytics":
-        safety_analytics_page()
+    real_time_detection_page()
 
 def real_time_detection_page():
     st.header("🎥 Real-time Detection")
-    
-    st.subheader("Model Configuration")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        model_path = st.text_input("Model Path", "FinalModel_yolov8.pt")
-        if st.button("Load Model"):
-            with st.spinner("Loading model..."):
-                st.session_state.model = load_yolo_model(model_path)
-                if st.session_state.model is not None:
-                    st.success("✅ Model loaded successfully!")
-    
-    with col2:
-        st.subheader("Detection Parameters")
-        confidence_threshold = st.slider("Confidence Threshold", 0.1, 1.0, 0.5)
-        iou_threshold = st.slider("IoU Threshold", 0.1, 1.0, 0.45)
-    
-    if 'model' not in st.session_state:
-        st.session_state.model = load_yolo_model(model_path)
     
     st.subheader("🛡️ Enhanced Safety Monitoring")
     col1, col2, col3 = st.columns(3)
@@ -317,6 +255,13 @@ def real_time_detection_page():
         st.warning("**⚠️ Collision Warning**: 3-second early warning system")
     with col3:  
         st.error("**🚨 Collision Alert**: Immediate collision detection")
+    
+    st.subheader("Detection Parameters")
+    col1, col2 = st.columns(2)
+    with col1:
+        confidence_threshold = st.slider("Confidence Threshold", 0.1, 1.0, 0.5)
+    with col2:
+        iou_threshold = st.slider("IoU Threshold", 0.1, 1.0, 0.45)
     
     st.subheader("Input Source")
     input_type = st.radio("Choose input type:", ["Upload Image", "Upload Video"])
@@ -366,9 +311,9 @@ def real_time_detection_page():
                     st.subheader("Violations Detected")
                     for violation in violations:
                         if "COLLISION DETECTED" in violation:
-                            st.error(f"🚨 {violation}")
+                            st.error(f"{violation}")
                         elif "COLLISION WARNING" in violation:
-                            st.warning(f"⚠️ {violation}")
+                            st.warning(f"{violation}")
                         else:
                             st.write(f"• {violation}")
                 
@@ -484,35 +429,32 @@ def real_time_detection_page():
                             
                             with col2:
                                 if status == "COLLISION DETECTED":
-                                    st.error(f"🚨 {status}")
+                                    st.error(f"{status}")
                                 elif status == "COLLISION WARNING":
-                                    st.warning(f"⚠️ {status}")
+                                    st.warning(f"{status}")
                                 elif status == "Safe":
                                     st.success(f"✅ {status}")
                                 else:
-                                    st.warning(f"⚠️ {status}")
+                                    st.warning(f"{status}")
                                 
-                               
                                 frame_result = safety_results[i]
                                 st.write(f"**Objects Detected:** {frame_result['Objects']}")
                                 st.write(f"**Vehicles:** {frame_result['Vehicles']}")
                                 st.write(f"**Pedestrians:** {frame_result['Pedestrians']}")
                                 
-                                
                                 if violations:
                                     st.write("**Safety Alerts:**")
                                     for violation in violations:
                                         if "COLLISION DETECTED" in violation:
-                                            st.error(f"🚨 {violation}")
+                                            st.error(f"{violation}")
                                         elif "COLLISION WARNING" in violation:
-                                            st.warning(f"⚠️ {violation}")
+                                            st.warning(f"{violation}")
                                         else:
                                             st.write(f"• {violation}")
                                 else:
                                     st.write("**✅ No safety violations detected**")
                             
                             st.divider()
-                        
                         
                         st.subheader("📊 Frame Analysis Summary")
                         df_results = pd.DataFrame(safety_results)
@@ -527,101 +469,7 @@ def real_time_detection_page():
                             mime="text/csv"
                         )
 
-def safety_analytics_page():
-    st.header("📈 Safety Analytics Dashboard")
-    
-    np.random.seed(42)
-    dates = pd.date_range('2024-01-01', periods=30, freq='D')
-    
-    safety_data = pd.DataFrame({
-        'Date': dates,
-        'Total_Detections': np.random.randint(50, 200, 30),
-        'Safe_Incidents': np.random.randint(40, 180, 30),
-        'Unsafe_Incidents': np.random.randint(5, 20, 30),
-        'Collision_Warnings': np.random.randint(0, 8, 30),
-        'Collisions_Detected': np.random.randint(0, 3, 30),
-        'Tailgating': np.random.randint(0, 15, 30),
-        'Pedestrian_Violations': np.random.randint(0, 10, 30)
-    })
-    
-    safety_data['Safety_Percentage'] = (safety_data['Safe_Incidents'] / safety_data['Total_Detections']) * 100
-    
-    st.subheader("🎯 Advanced Safety Metrics")
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        avg_safety = safety_data['Safety_Percentage'].mean()
-        st.metric("Average Safety %", f"{avg_safety:.1f}%")
-    
-    with col2:
-        total_collisions = safety_data['Collisions_Detected'].sum()
-        st.metric("🚨 Total Collisions", total_collisions)
-    
-    with col3:
-        total_warnings = safety_data['Collision_Warnings'].sum()
-        st.metric("⚠️ Collision Warnings", total_warnings)
-    
-    with col4:
-        critical_days = len(safety_data[safety_data['Collisions_Detected'] > 0])
-        st.metric("Critical Days", critical_days)
-    
-    # Charts
-    if PLOTLY_AVAILABLE:
-        import plotly.graph_objects as go
-        import plotly.express as px
-        
-        st.subheader("📊 Advanced Safety Trends")
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=safety_data['Date'], y=safety_data['Safety_Percentage'],
-                                mode='lines+markers', name='Safety %', line=dict(color='green')))
-        fig.add_trace(go.Scatter(x=safety_data['Date'], y=safety_data['Collision_Warnings'],
-                                mode='lines+markers', name='Collision Warnings', line=dict(color='orange')))
-        fig.add_trace(go.Scatter(x=safety_data['Date'], y=safety_data['Collisions_Detected'],
-                                mode='lines+markers', name='Collisions Detected', line=dict(color='red')))
-        fig.update_layout(title='Safety Metrics Over Time')
-        st.plotly_chart(fig, use_container_width=True)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            total_tailgating = safety_data['Tailgating'].sum()
-            total_pedestrian = safety_data['Pedestrian_Violations'].sum()
-            total_warnings = safety_data['Collision_Warnings'].sum()
-            total_collisions = safety_data['Collisions_Detected'].sum()
-            
-            fig = px.pie(values=[total_tailgating, total_pedestrian, total_warnings, total_collisions], 
-                        names=['Tailgating', 'Pedestrian Violations', 'Collision Warnings', 'Collisions'],
-                        title="Safety Incident Distribution")
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            recent_data = safety_data.tail(7)
-            fig = px.bar(recent_data, x='Date', 
-                        y=['Safe_Incidents', 'Unsafe_Incidents', 'Collision_Warnings', 'Collisions_Detected'],
-                        title="Recent Safety Activity")
-            st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.subheader("📊 Safety Trends (Basic)")
-        chart_data = safety_data.set_index('Date')[['Safety_Percentage', 'Collision_Warnings', 'Collisions_Detected']]
-        st.line_chart(chart_data)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.subheader("Violation Types")
-            violation_data = {
-                'Tailgating': safety_data['Tailgating'].sum(),
-                'Pedestrian': safety_data['Pedestrian_Violations'].sum(),
-                'Collision Warnings': safety_data['Collision_Warnings'].sum(),
-                'Collisions': safety_data['Collisions_Detected'].sum()
-            }
-            st.bar_chart(violation_data)
-        
-        with col2:
-            st.subheader("Recent Activity")
-            recent = safety_data.tail(7).set_index('Date')[['Safe_Incidents', 'Unsafe_Incidents', 'Collision_Warnings', 'Collisions_Detected']]
-            st.bar_chart(recent)
-    
-    st.subheader("📋 Raw Safety Data")
-    st.dataframe(safety_data.sort_values('Date', ascending=False), use_container_width=True)
+
 
 if __name__ == "__main__":
     main()
