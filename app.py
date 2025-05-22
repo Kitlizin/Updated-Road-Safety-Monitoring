@@ -3,8 +3,6 @@ import numpy as np
 import pandas as pd
 import tempfile
 from PIL import Image
-import plotly.express as px
-import plotly.graph_objects as go
 from collections import defaultdict, deque
 import time
 import math
@@ -15,20 +13,19 @@ try:
     CV2_AVAILABLE = True
 except ImportError:
     CV2_AVAILABLE = False
-    st.warning("OpenCV not available. Some features may be limited.")
 
 try:
     from ultralytics import YOLO
     YOLO_AVAILABLE = True
 except ImportError:
     YOLO_AVAILABLE = False
-    st.warning("YOLO not available. Using simulation mode.")
 
 try:
-    import torch
-    TORCH_AVAILABLE = True
+    import plotly.express as px
+    import plotly.graph_objects as go
+    PLOTLY_AVAILABLE = True
 except ImportError:
-    TORCH_AVAILABLE = False
+    PLOTLY_AVAILABLE = False
 
 # Page configuration
 st.set_page_config(
@@ -63,13 +60,13 @@ class SafetyAnalyzer:
             confidence = detection['confidence']
             track_id = detection.get('track_id', 0)
             
-            if class_id == 0:  # Vehicle (assuming vehicle class is 0)
+            if class_id == 0:  # Vehicle
                 vehicles.append({
                     'id': track_id,
                     'bbox': bbox,
                     'confidence': confidence
                 })
-            elif class_id == 1:  # Pedestrian (assuming pedestrian class is 1)
+            elif class_id == 1:  # Pedestrian
                 pedestrians.append({
                     'id': track_id,
                     'bbox': bbox,
@@ -116,13 +113,13 @@ class SafetyAnalyzer:
 def load_yolo_model(model_path="FinalModel_yolov8.pt"):
     """Load the trained YOLOv8 model"""
     if not YOLO_AVAILABLE:
-        st.error("YOLO is not available. Please install ultralytics: pip install ultralytics")
-        return None
+        st.info("🔄 YOLO not available - Running in demo mode")
+        return "demo_mode"
         
     try:
-        # For demo purposes, use a pretrained model if custom model not found
+        # For demo purposes, use a pretrained model
         model = YOLO('yolov8n.pt')  # This will download automatically
-        st.info("Using YOLOv8n pretrained model (demo mode)")
+        st.info("✅ Using YOLOv8n pretrained model")
         return model
     except Exception as e:
         st.error(f"Error loading model: {str(e)}")
@@ -130,11 +127,12 @@ def load_yolo_model(model_path="FinalModel_yolov8.pt"):
 
 def run_detection(model, image, conf_threshold=0.5, iou_threshold=0.45):
     """Run YOLOv8 detection on image"""
-    if not YOLO_AVAILABLE or model is None:
+    if not YOLO_AVAILABLE or model == "demo_mode" or model is None:
         # Return dummy detections for demo
+        height, width = image.shape[:2] if len(image.shape) > 2 else (400, 600)
         return [
-            {'bbox': [100, 100, 300, 250], 'confidence': 0.85, 'class_id': 2, 'track_id': 1},  # car
-            {'bbox': [400, 150, 450, 300], 'confidence': 0.75, 'class_id': 0, 'track_id': 2}   # person
+            {'bbox': [width*0.1, height*0.3, width*0.4, height*0.7], 'confidence': 0.85, 'class_id': 0, 'track_id': 1},  # vehicle
+            {'bbox': [width*0.6, height*0.4, width*0.75, height*0.8], 'confidence': 0.75, 'class_id': 1, 'track_id': 2}   # pedestrian
         ]
     
     try:
@@ -176,14 +174,16 @@ def run_detection(model, image, conf_threshold=0.5, iou_threshold=0.45):
 def draw_safety_annotations(image, detections, safety_status, violations):
     """Draw bounding boxes and safety annotations on image"""
     if not CV2_AVAILABLE:
-        # Return original image if cv2 not available
         return image
         
     import cv2
     
-    img_copy = image.copy()
+    if isinstance(image, Image.Image):
+        img_copy = np.array(image)
+    else:
+        img_copy = image.copy()
     
-    # Color coding
+    # Color coding (BGR format for OpenCV)
     colors = {
         'Vehicle': (0, 255, 0),  # Green
         'Pedestrian': (255, 0, 0),  # Blue
@@ -218,26 +218,29 @@ def draw_safety_annotations(image, detections, safety_status, violations):
     
     # Draw violations
     for i, violation in enumerate(violations):
-        cv2.putText(img_copy, violation, (10, 70 + i * 30), 
+        cv2.putText(img_copy, violation[:50], (10, 70 + i * 30), 
                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
     
     return img_copy
-
-def draw_simple_annotations(image, detections, safety_status, violations):
-    """Simple annotation without OpenCV"""
-    # This would require PIL drawing which is more complex
-    # For now, return the original image
-    return np.array(image)
 
 def main():
     st.title("🚗 Reckless Driving Safety Monitor")
     st.markdown("**Research Title:** Reckless Driving Behavior Recognition For Road Safety Monitoring")
     
+    # Show system status
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("OpenCV", "✅ Available" if CV2_AVAILABLE else "❌ Not Available")
+    with col2:
+        st.metric("YOLO", "✅ Available" if YOLO_AVAILABLE else "⚠️ Demo Mode")
+    with col3:
+        st.metric("Plotly", "✅ Available" if PLOTLY_AVAILABLE else "❌ Basic Charts")
+    
     # Sidebar for navigation
     st.sidebar.title("Navigation")
     page = st.sidebar.selectbox("Choose a page", [
         "Real-time Detection",
-        "Batch Analysis",
+        "Batch Analysis", 
         "Safety Analytics"
     ])
     
@@ -247,47 +250,6 @@ def main():
         batch_analysis_page()
     elif page == "Safety Analytics":
         safety_analytics_page()
-
-.exists(dataset_path):
-            st.error("Dataset path does not exist!")
-            return
-            
-        # Create YAML config
-        class_names = ['Vehicle', 'Pedestrian']
-        yaml_path = create_yaml_config(dataset_path, class_names)
-        
-        with st.spinner("Training in progress... This may take a while."):
-            try:
-                # Training code placeholder (would run in actual environment)
-                st.code(f"""
-                from ultralytics import YOLO
-                
-                # Load model
-                model = YOLO('{model_size}')
-                
-                # Train model
-                results = model.train(
-                    data='{yaml_path}',
-                    epochs={epochs},
-                    batch={batch_size},
-                    imgsz={img_size},
-                    device='{device}',
-                    patience={patience},
-                    save=True,
-                    plots=True
-                )
-                
-                # Validate model
-                metrics = model.val()
-                
-                # Export model
-                model.export(format='onnx')
-                """)
-                
-                st.success("Training configuration ready! Run this code in your training environment.")
-                
-            except Exception as e:
-                st.error(f"Training failed: {str(e)}")
 
 def real_time_detection_page():
     st.header("🎥 Real-time Detection")
@@ -303,25 +265,27 @@ def real_time_detection_page():
                 st.session_state.model = load_yolo_model(model_path)
                 if st.session_state.model is not None:
                     st.success("✅ Model loaded successfully!")
-                else:
-                    st.error("❌ Failed to load model")
     
     with col2:
         st.subheader("Detection Parameters")
         confidence_threshold = st.slider("Confidence Threshold", 0.1, 1.0, 0.5)
         iou_threshold = st.slider("IoU Threshold", 0.1, 1.0, 0.45)
     
-    # Check if model is loaded
+    # Initialize model if not exists
     if 'model' not in st.session_state:
         st.session_state.model = load_yolo_model(model_path)
     
-    if st.session_state.model is None:
-        st.warning("Please load a valid model to continue.")
-        return
+    # Safety information
+    st.subheader("🛡️ Safety Rules")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.info("**2-Second Rule**: Maintain 2-3 second following distance (10-15m at 60-80 km/h)")
+    with col2:
+        st.info("**Pedestrian Safety**: Maintain minimum 1 meter distance when passing pedestrians")
     
     # Upload options
     st.subheader("Input Source")
-    input_type = st.radio("Choose input type:", ["Upload Image", "Upload Video", "Webcam"])
+    input_type = st.radio("Choose input type:", ["Upload Image", "Upload Video"])
     
     safety_analyzer = SafetyAnalyzer()
     
@@ -337,13 +301,13 @@ def real_time_detection_page():
             
             with col1:
                 st.subheader("Original Image")
-                st.image(image)
+                st.image(image, use_column_width=True)
             
             with col2:
                 st.subheader("Detection Results")
                 
                 with st.spinner("Running detection..."):
-                    # Run actual YOLO detection
+                    # Run detection
                     detections = run_detection(st.session_state.model, img_array, 
                                              confidence_threshold, iou_threshold)
                     
@@ -352,9 +316,10 @@ def real_time_detection_page():
                     # Draw annotations
                     if CV2_AVAILABLE:
                         annotated_img = draw_safety_annotations(img_array, detections, safety_status, violations)
+                        st.image(annotated_img, use_column_width=True)
                     else:
-                        annotated_img = draw_simple_annotations(img_array, detections, safety_status, violations)
-                    st.image(annotated_img)
+                        st.image(img_array, use_column_width=True)
+                        st.warning("OpenCV not available - showing original image")
                 
                 # Safety report
                 st.subheader("Safety Analysis")
@@ -363,7 +328,7 @@ def real_time_detection_page():
                 else:
                     st.error("⚠️ Unsafe - Violations detected:")
                     for violation in violations:
-                        st.write(f"- {violation}")
+                        st.write(f"• {violation}")
                 
                 # Detection details
                 if detections:
@@ -374,41 +339,39 @@ def real_time_detection_page():
                         detection_data.append({
                             'Object': class_name,
                             'Confidence': f"{det['confidence']:.2f}",
-                            'Bbox': f"[{det['bbox'][0]:.0f}, {det['bbox'][1]:.0f}, {det['bbox'][2]:.0f}, {det['bbox'][3]:.0f}]"
+                            'Position': f"({det['bbox'][0]:.0f}, {det['bbox'][1]:.0f})"
                         })
                     
                     df = pd.DataFrame(detection_data)
-                    st.dataframe(df)
+                    st.dataframe(df, use_container_width=True)
     
     elif input_type == "Upload Video":
         uploaded_video = st.file_uploader("Choose a video", type=['mp4', 'avi', 'mov'])
         
         if uploaded_video is not None:
-            # Save uploaded video temporarily
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_file:
-                tmp_file.write(uploaded_video.read())
-                video_path = tmp_file.name
-            
             st.video(uploaded_video)
             
-            if st.button("Process Video"):
+            if st.button("Process Video (Sample Frames)"):
                 if not CV2_AVAILABLE:
-                    st.error("OpenCV is required for video processing. Please install opencv-python.")
+                    st.error("OpenCV is required for video processing.")
                     return
                     
+                # Save video temporarily
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_file:
+                    tmp_file.write(uploaded_video.read())
+                    video_path = tmp_file.name
+                
                 import cv2
                 with st.spinner("Processing video frames..."):
-                    # Video processing
                     cap = cv2.VideoCapture(video_path)
                     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
                     fps = cap.get(cv2.CAP_PROP_FPS)
                     
-                    st.info(f"Video info: {frame_count} frames, {fps:.2f} FPS")
+                    st.info(f"📹 Video: {frame_count} frames, {fps:.1f} FPS")
                     
                     # Process sample frames
                     progress_bar = st.progress(0)
-                    sample_frames = min(10, frame_count)  # Process first 10 frames as sample
-                    
+                    sample_frames = min(5, frame_count)
                     safety_results = []
                     
                     for i in range(sample_frames):
@@ -416,7 +379,6 @@ def real_time_detection_page():
                         if not ret:
                             break
                         
-                        # Run detection on frame
                         detections = run_detection(st.session_state.model, frame, 
                                                  confidence_threshold, iou_threshold)
                         safety_status, violations = safety_analyzer.analyze_frame(frame, detections)
@@ -434,11 +396,11 @@ def real_time_detection_page():
                     
                     # Display results
                     if safety_results:
-                        st.subheader("Video Analysis Results (Sample)")
+                        st.subheader("📊 Sample Analysis Results")
                         df_results = pd.DataFrame(safety_results)
-                        st.dataframe(df_results)
+                        st.dataframe(df_results, use_container_width=True)
                         
-                        # Summary statistics
+                        # Summary
                         safe_frames = len([r for r in safety_results if r['Status'] == 'Safe'])
                         unsafe_frames = len(safety_results) - safe_frames
                         
@@ -448,176 +410,115 @@ def real_time_detection_page():
                         with col2:
                             st.metric("Unsafe Frames", unsafe_frames)
                         with col3:
-                            safety_percentage = (safe_frames / len(safety_results)) * 100
-                            st.metric("Safety %", f"{safety_percentage:.1f}%")
-    
-    elif input_type == "Webcam":
-        st.info("📹 Webcam functionality - Connect your webcam for real-time analysis")
-        
-        if st.button("Start Webcam Detection"):
-            st.info("Real-time webcam detection would start here. This requires additional setup for web deployment.")
-            st.code("""
-            # Webcam implementation example:
-            cap = cv2.VideoCapture(0)  # Use default camera
-            
-            while True:
-                ret, frame = cap.read()
-                if not ret:
-                    break
-                    
-                detections = run_detection(model, frame, conf_threshold, iou_threshold)
-                safety_status, violations = safety_analyzer.analyze_frame(frame, detections)
-                annotated_frame = draw_safety_annotations(frame, detections, safety_status, violations)
-                
-                # Display frame
-                cv2.imshow('Safety Monitor', annotated_frame)
-                
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
-            
-            cap.release()
-            cv2.destroyAllWindows()
-            """)
+                            safety_pct = (safe_frames / len(safety_results)) * 100
+                            st.metric("Safety %", f"{safety_pct:.1f}%")
 
 def batch_analysis_page():
     st.header("📊 Batch Analysis")
     
-    st.subheader("Analyze Multiple Images/Videos")
-    
-    # Check if model is loaded
+    # Check model
     if 'model' not in st.session_state:
         st.session_state.model = load_yolo_model("FinalModel_yolov8.pt")
     
-    if st.session_state.model is None:
-        st.warning("Please load a valid model first from the Real-time Detection page.")
-        return
-    
-    # Batch processing options
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("Input Configuration")
-        batch_folder = st.text_input("Batch Folder Path", "/path/to/batch/folder")
-        file_types = st.multiselect("File Types", ['.jpg', '.jpeg', '.png', '.mp4', '.avi'], 
-                                   default=['.jpg', '.jpeg', '.png'])
-    
-    with col2:
-        st.subheader("Analysis Parameters")
-        confidence_threshold = st.slider("Detection Confidence", 0.1, 1.0, 0.5)
-        save_results = st.checkbox("Save Annotated Results", value=True)
-        generate_report = st.checkbox("Generate Safety Report", value=True)
-    
-    # File upload option for batch processing
-    st.subheader("Or Upload Multiple Files")
+    st.subheader("Upload Multiple Files")
     uploaded_files = st.file_uploader("Choose multiple images", type=['jpg', 'jpeg', 'png'], 
                                      accept_multiple_files=True)
     
-    if uploaded_files:
-        if st.button("Analyze Uploaded Files"):
-            safety_analyzer = SafetyAnalyzer()
-            results = []
-            
-            progress_bar = st.progress(0)
-            
-            for i, uploaded_file in enumerate(uploaded_files):
-                # Load and process image
+    col1, col2 = st.columns(2)
+    with col1:
+        confidence_threshold = st.slider("Detection Confidence", 0.1, 1.0, 0.5, key="batch_conf")
+    with col2:
+        max_files = st.number_input("Max files to process", 1, 50, 10)
+    
+    if uploaded_files and st.button("🚀 Analyze Batch"):
+        safety_analyzer = SafetyAnalyzer()
+        results = []
+        
+        files_to_process = uploaded_files[:max_files]
+        progress_bar = st.progress(0)
+        
+        for i, uploaded_file in enumerate(files_to_process):
+            try:
                 image = Image.open(uploaded_file)
                 img_array = np.array(image)
                 
-                # Run detection
                 detections = run_detection(st.session_state.model, img_array, confidence_threshold)
                 safety_status, violations = safety_analyzer.analyze_frame(img_array, detections)
                 
                 results.append({
                     'Filename': uploaded_file.name,
                     'Status': safety_status,
-                    'Total_Objects': len(detections),
+                    'Objects': len(detections),
                     'Vehicles': len([d for d in detections if d['class_id'] == 0]),
                     'Pedestrians': len([d for d in detections if d['class_id'] == 1]),
-                    'Violations': len(violations),
-                    'Violation_Details': '; '.join(violations) if violations else 'None'
+                    'Violations': len(violations)
                 })
                 
-                progress_bar.progress((i + 1) / len(uploaded_files))
+                progress_bar.progress((i + 1) / len(files_to_process))
+            except Exception as e:
+                st.error(f"Error processing {uploaded_file.name}: {str(e)}")
+        
+        if results:
+            st.success(f"✅ Processed {len(results)} files!")
             
-            # Display results
-            if results:
-                st.success(f"Batch analysis completed! Processed {len(results)} files.")
-                
-                # Summary metrics
-                total_files = len(results)
-                safe_files = len([r for r in results if r['Status'] == 'Safe'])
-                unsafe_files = total_files - safe_files
-                total_violations = sum([r['Violations'] for r in results])
-                
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("Total Files", total_files)
-                with col2:
-                    st.metric("Safe", safe_files, delta=f"{safe_files/total_files*100:.1f}%")
-                with col3:
-                    st.metric("Unsafe", unsafe_files, delta=f"{unsafe_files/total_files*100:.1f}%")
-                with col4:
-                    st.metric("Total Violations", total_violations)
-                
-                # Results table
-                st.subheader("Detailed Results")
-                df_results = pd.DataFrame(results)
-                st.dataframe(df_results)
-                
-                # Visualization
+            # Summary metrics
+            total_files = len(results)
+            safe_files = len([r for r in results if r['Status'] == 'Safe'])
+            unsafe_files = total_files - safe_files
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Total Files", total_files)
+            with col2:
+                st.metric("Safe", safe_files)
+            with col3:
+                st.metric("Unsafe", unsafe_files)
+            with col4:
+                safety_pct = (safe_files / total_files) * 100
+                st.metric("Safety %", f"{safety_pct:.1f}%")
+            
+            # Results table
+            st.subheader("📋 Detailed Results")
+            df_results = pd.DataFrame(results)
+            st.dataframe(df_results, use_container_width=True)
+            
+            # Simple charts without Plotly
+            if PLOTLY_AVAILABLE:
+                import plotly.express as px
                 col1, col2 = st.columns(2)
                 
                 with col1:
-                    # Safety status pie chart
                     status_counts = df_results['Status'].value_counts()
-                    fig_pie = px.pie(values=status_counts.values, names=status_counts.index,
-                                    title="Safety Status Distribution")
-                    st.plotly_chart(fig_pie)
+                    fig = px.pie(values=status_counts.values, names=status_counts.index,
+                               title="Safety Status Distribution")
+                    st.plotly_chart(fig, use_container_width=True)
                 
                 with col2:
-                    # Object detection summary
-                    object_data = {
-                        'Type': ['Vehicles', 'Pedestrians'],
-                        'Count': [df_results['Vehicles'].sum(), df_results['Pedestrians'].sum()]
-                    }
-                    fig_bar = px.bar(object_data, x='Type', y='Count', 
-                                    title="Total Objects Detected")
-                    st.plotly_chart(fig_bar)
-                
-                # Download results
-                if generate_report:
-                    csv = df_results.to_csv(index=False)
-                    st.download_button(
-                        label="📥 Download Results CSV",
-                        data=csv,
-                        file_name="batch_analysis_results.csv",
-                        mime="text/csv"
-                    )
-    
-    elif st.button("Start Folder Analysis") and os.path.exists(batch_folder):
-        # Process files from folder
-        all_files = []
-        for ext in file_types:
-            all_files.extend([f for f in os.listdir(batch_folder) if f.lower().endswith(ext.lower())])
-        
-        if all_files:
-            st.info(f"Found {len(all_files)} files to process")
-            # Similar processing logic as above for folder-based analysis
-        else:
-            st.warning("No files found with the specified extensions")
-    
-    elif batch_folder and not os.path.exists(batch_folder):
-        st.error("Batch folder does not exist!")
+                    fig = px.bar(df_results, x='Filename', y=['Vehicles', 'Pedestrians'],
+                               title="Objects per File")
+                    st.plotly_chart(fig, use_container_width=True)
+            else:
+                # Basic charts using Streamlit
+                st.subheader("📈 Status Distribution")
+                status_counts = df_results['Status'].value_counts()
+                st.bar_chart(status_counts)
+            
+            # Download option
+            csv = df_results.to_csv(index=False)
+            st.download_button(
+                label="📥 Download Results CSV",
+                data=csv,
+                file_name="batch_analysis_results.csv",
+                mime="text/csv"
+            )
 
 def safety_analytics_page():
-    st.header("📈 Safety Analytics")
+    st.header("📈 Safety Analytics Dashboard")
     
-    # Generate sample data for demonstration
+    # Generate sample data
     np.random.seed(42)
     dates = pd.date_range('2024-01-01', periods=30, freq='D')
     
-    # Sample safety data
     safety_data = pd.DataFrame({
         'Date': dates,
         'Total_Detections': np.random.randint(50, 200, 30),
@@ -627,42 +528,10 @@ def safety_analytics_page():
         'Pedestrian_Violations': np.random.randint(0, 10, 30)
     })
     
-    # Calculate safety percentage
     safety_data['Safety_Percentage'] = (safety_data['Safe_Incidents'] / safety_data['Total_Detections']) * 100
     
-    st.subheader("Safety Trends Over Time")
-    
-    # Time series plot
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=safety_data['Date'], y=safety_data['Safety_Percentage'],
-                            mode='lines+markers', name='Safety Percentage'))
-    fig.update_layout(title='Safety Percentage Over Time', xaxis_title='Date', yaxis_title='Safety %')
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # Violation breakdown
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("Violation Types Distribution")
-        total_tailgating = safety_data['Tailgating'].sum()
-        total_pedestrian = safety_data['Pedestrian_Violations'].sum()
-        
-        fig_pie = px.pie(values=[total_tailgating, total_pedestrian], 
-                        names=['Tailgating', 'Pedestrian Violations'],
-                        title="Violation Types")
-        st.plotly_chart(fig_pie)
-    
-    with col2:
-        st.subheader("Daily Detection Summary")
-        recent_data = safety_data.tail(7)
-        
-        fig_bar = px.bar(recent_data, x='Date', y=['Safe_Incidents', 'Unsafe_Incidents'],
-                        title="Last 7 Days - Safe vs Unsafe")
-        st.plotly_chart(fig_bar)
-    
-    # Safety metrics
-    st.subheader("Key Safety Metrics")
-    
+    # Key metrics
+    st.subheader("🎯 Key Safety Metrics")
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
@@ -674,16 +543,59 @@ def safety_analytics_page():
         st.metric("Total Violations", total_violations)
     
     with col3:
-        worst_day = safety_data['Safety_Percentage'].min()
-        st.metric("Worst Day Safety %", f"{worst_day:.1f}%")
+        best_day = safety_data['Safety_Percentage'].max()
+        st.metric("Best Day %", f"{best_day:.1f}%")
     
     with col4:
-        best_day = safety_data['Safety_Percentage'].max()
-        st.metric("Best Day Safety %", f"{best_day:.1f}%")
+        worst_day = safety_data['Safety_Percentage'].min()
+        st.metric("Worst Day %", f"{worst_day:.1f}%")
     
-    # Detailed data table
-    st.subheader("Detailed Safety Data")
-    st.dataframe(safety_data.sort_values('Date', ascending=False))
+    # Charts
+    if PLOTLY_AVAILABLE:
+        import plotly.graph_objects as go
+        import plotly.express as px
+        
+        st.subheader("📊 Safety Trends")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=safety_data['Date'], y=safety_data['Safety_Percentage'],
+                                mode='lines+markers', name='Safety %'))
+        fig.update_layout(title='Safety Percentage Over Time')
+        st.plotly_chart(fig, use_container_width=True)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            total_tailgating = safety_data['Tailgating'].sum()
+            total_pedestrian = safety_data['Pedestrian_Violations'].sum()
+            fig = px.pie(values=[total_tailgating, total_pedestrian], 
+                        names=['Tailgating', 'Pedestrian Violations'])
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            recent_data = safety_data.tail(7)
+            fig = px.bar(recent_data, x='Date', y=['Safe_Incidents', 'Unsafe_Incidents'])
+            st.plotly_chart(fig, use_container_width=True)
+    else:
+        # Basic Streamlit charts
+        st.subheader("📊 Safety Trends (Basic)")
+        st.line_chart(safety_data.set_index('Date')['Safety_Percentage'])
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("Violation Types")
+            violation_data = {
+                'Tailgating': safety_data['Tailgating'].sum(),
+                'Pedestrian': safety_data['Pedestrian_Violations'].sum()
+            }
+            st.bar_chart(violation_data)
+        
+        with col2:
+            st.subheader("Recent Activity")
+            recent = safety_data.tail(7).set_index('Date')[['Safe_Incidents', 'Unsafe_Incidents']]
+            st.bar_chart(recent)
+    
+    # Data table
+    st.subheader("📋 Raw Data")
+    st.dataframe(safety_data.sort_values('Date', ascending=False), use_container_width=True)
 
 if __name__ == "__main__":
     main()
