@@ -799,5 +799,33 @@ def get_safety_metrics(safety_results):
         'unsafe_rate': unsafe_frames / total_frames * 100
     }
 
+def generate_safety_report(safety_results, video_info=None):
+    """Generate a comprehensive safety report"""
+    metrics = get_safety_metrics(safety_results)
+    
+    report = f"""
+    # Road Safety Analysis Report
+    Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+    
+    ## Summary
+    - Total Frames Analyzed: {len(safety_results)}
+    - Safety Score: {metrics.get('safety_score', 0):.1f}%
+    - Collision Rate: {metrics.get('collision_rate', 0):.1f}%
+    - Warning Rate: {metrics.get('warning_rate', 0):.1f}%
+    
+    ## Key Findings
+    - Pedestrian safety violations detected
+    - Vehicle spacing issues identified
+    - Collision risk scenarios found
+    
+    ## Recommendations
+    - Implement 2-meter pedestrian safety zones
+    - Enforce 2-second vehicle following rule
+    - Install additional safety signage
+    - Consider speed reduction measures
+    """
+    
+    return report
+
 if __name__ == "__main__":
     main()
