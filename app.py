@@ -265,16 +265,16 @@ def draw_safety_annotations(image, detections, safety_status, violations):
 
 def main():
     st.title("🚗 Road Safety Monitoring")
-    st.markdown("**Research Title:** Reckless Driving Behavior Recognition For Road Safety Monitoring")
+    st.markdown("Reckless Driving Behavior Recognition For Road Safety Monitoring")
     
     st.session_state.model = load_yolo_model()
     
     real_time_detection_page()
 
 def real_time_detection_page():
-    st.header("🎥 Real-time Detection")
+    st.header("Detection")
     
-    st.subheader("🛡️ Enhanced Safety Monitoring")
+    st.subheader("Safety Information")
     col1, col2, col3 = st.columns(3)
     with col1:
         st.info("**2-Second Rule**: Maintain 2-3 second following distance")
