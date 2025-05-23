@@ -7,6 +7,7 @@ from collections import defaultdict, deque
 import time
 import math
 from datetime import datetime, timedelta
+import os
 
 try:
     import cv2
@@ -139,24 +140,92 @@ class SafetyAnalyzer:
 @st.cache_resource
 def load_yolo_model():
     if not YOLO_AVAILABLE:
-        st.info("🔄 YOLO not available - Running in demo mode")
+        st.warning("⚠️ YOLO (ultralytics) package not installed. Install with: pip install ultralytics")
+        st.info("🔄 Running in demo mode with simulated detections")
         return "demo_mode"
-        
-    try:
-        model = YOLO('FinalModel_yolov8.pt') 
-        st.success("✅ Model loaded successfully!")
-        return model
-    except Exception as e:
-        st.error(f"Error loading model: {str(e)}")
-        return None
+    
+    # List of model options to try, in order of preference
+    model_options = [
+        'FinalModel_yolov8.pt',  # Your custom model (if available)
+        'yolov8n.pt',           # YOLOv8 nano (fastest, smallest)
+        'yolov8s.pt',           # YOLOv8 small
+        'yolov8m.pt',           # YOLOv8 medium
+        'yolov8l.pt',           # YOLOv8 large
+        'yolov8x.pt'            # YOLOv8 extra large
+    ]
+    
+    # Try to load models in order of preference
+    for model_name in model_options:
+        try:
+            st.info(f"🔄 Attempting to load {model_name}...")
+            model = YOLO(model_name)
+            
+            # Test the model with a dummy prediction to ensure it works
+            dummy_img = np.zeros((640, 640, 3), dtype=np.uint8)
+            _ = model.predict(dummy_img, verbose=False)
+            
+            st.success(f"✅ Successfully loaded {model_name}!")
+            
+            # Show model info
+            if model_name == 'FinalModel_yolov8.pt':
+                st.info("🎯 Using your custom trained model")
+            else:
+                st.info(f"🤖 Using pre-trained {model_name} - will detect general objects")
+                st.warning("⚠️ Note: Pre-trained models may not be optimized for road safety. For best results, use a custom trained model.")
+            
+            return model
+            
+        except FileNotFoundError:
+            if model_name == 'FinalModel_yolov8.pt':
+                st.warning(f"❌ Custom model '{model_name}' not found. Trying pre-trained models...")
+            continue
+        except Exception as e:
+            st.error(f"❌ Error loading {model_name}: {str(e)}")
+            continue
+    
+    # If no model could be loaded
+    st.error("❌ Could not load any YOLO model")
+    st.info("🔄 Running in demo mode with simulated detections")
+    return "demo_mode"
 
 def run_detection(model, image, conf_threshold=0.5, iou_threshold=0.45):
     if not YOLO_AVAILABLE or model == "demo_mode" or model is None:
+        # Enhanced demo mode with more realistic detections
         height, width = image.shape[:2] if len(image.shape) > 2 else (400, 600)
-        return [
-            {'bbox': [width*0.1, height*0.3, width*0.4, height*0.7], 'confidence': 0.85, 'class_id': 0, 'track_id': 1},
-            {'bbox': [width*0.6, height*0.4, width*0.75, height*0.8], 'confidence': 0.75, 'class_id': 1, 'track_id': 2}
+        
+        # Generate more varied demo detections
+        demo_detections = []
+        
+        # Add some vehicles at different positions
+        vehicle_positions = [
+            [width*0.1, height*0.3, width*0.35, height*0.7],
+            [width*0.6, height*0.2, width*0.85, height*0.6],
+            [width*0.4, height*0.5, width*0.65, height*0.9],
         ]
+        
+        for i, pos in enumerate(vehicle_positions):
+            demo_detections.append({
+                'bbox': pos, 
+                'confidence': 0.75 + (i * 0.05), 
+                'class_id': 0,  # Vehicle
+                'track_id': i + 1
+            })
+        
+        # Add some pedestrians
+        pedestrian_positions = [
+            [width*0.75, height*0.4, width*0.85, height*0.8],
+            [width*0.15, height*0.6, width*0.25, height*0.95],
+        ]
+        
+        for i, pos in enumerate(pedestrian_positions):
+            demo_detections.append({
+                'bbox': pos, 
+                'confidence': 0.70 + (i * 0.1), 
+                'class_id': 1,  # Pedestrian
+                'track_id': len(vehicle_positions) + i + 1
+            })
+        
+        return demo_detections
     
     try:
         if isinstance(image, Image.Image):
@@ -173,12 +242,13 @@ def run_detection(model, image, conf_threshold=0.5, iou_threshold=0.45):
                     conf = boxes.conf[i].cpu().numpy()
                     cls = int(boxes.cls[i].cpu().numpy())
                     
-                    if cls == 0:  
-                        class_id = 1 
-                    elif cls in [2, 5, 7]: 
-                        class_id = 0  
+                    # Map COCO classes to our classes
+                    if cls == 0:  # person in COCO
+                        class_id = 1  # Pedestrian in our system
+                    elif cls in [1, 2, 3, 5, 7]:  # bicycle, car, motorcycle, bus, truck in COCO
+                        class_id = 0  # Vehicle in our system
                     else:
-                        continue  
+                        continue  # Skip other classes
                     
                     detections.append({
                         'bbox': box,
@@ -194,6 +264,7 @@ def run_detection(model, image, conf_threshold=0.5, iou_threshold=0.45):
 
 def draw_safety_annotations(image, detections, safety_status, violations):
     if not CV2_AVAILABLE:
+        st.warning("⚠️ OpenCV not available. Install with: pip install opencv-python")
         return image
         
     import cv2
@@ -261,11 +332,48 @@ def draw_safety_annotations(image, detections, safety_status, violations):
     
     return img_copy
 
+def installation_guide():
+    st.sidebar.subheader("📦 Installation Guide")
+    
+    with st.sidebar.expander("Install Required Packages"):
+        st.code("""
+# Install core packages
+pip install ultralytics
+pip install opencv-python
+pip install plotly
+
+# For GPU support (optional)
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+        """)
+    
+    with st.sidebar.expander("Model Setup"):
+        st.write("""
+**Option 1: Use Pre-trained Models**
+- The app will automatically download YOLOv8 models
+- First run may take time to download
+
+**Option 2: Use Custom Model**
+- Place your `FinalModel_yolov8.pt` in the same directory
+- App will automatically detect and use it
+        """)
+
 def main():
     st.title("🚗 Road Safety Monitoring")
     st.markdown("Reckless Driving Behavior Recognition For Road Safety Monitoring")
     
-    st.session_state.model = load_yolo_model()
+    # Show installation guide in sidebar
+    installation_guide()
+    
+    # Load model with improved error handling
+    if 'model' not in st.session_state:
+        st.session_state.model = load_yolo_model()
+    
+    # Show current model status
+    if st.session_state.model == "demo_mode":
+        st.info("🔄 **Running in Demo Mode** - Install ultralytics package for real YOLO detection")
+        if st.button("🔄 Retry Model Loading"):
+            st.session_state.model = load_yolo_model()
+            st.rerun()
     
     real_time_detection_page()
 
@@ -370,7 +478,7 @@ def real_time_detection_page():
             
             if st.button("🎬 Process Video Frames"):
                 if not CV2_AVAILABLE:
-                    st.error("OpenCV is required for video processing.")
+                    st.error("OpenCV is required for video processing. Install with: pip install opencv-python")
                     return
                     
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_file:
@@ -493,8 +601,6 @@ def real_time_detection_page():
                             file_name="video_safety_analysis_results.csv",
                             mime="text/csv"
                         )
-
-
 
 if __name__ == "__main__":
     main()
