@@ -80,7 +80,7 @@ class SafetyAnalyzer:
                 
                 if real_distance <= 0.2:
                     safety_status = "COLLISION DETECTED"
-                    violations.append("COLLISION DETECTED - Vehicle and pedestrian collision!")
+                    violations.append("WARNING - Vehicle too close to pedestrian!")
                     collision_detected = True
                 elif real_distance < self.PEDESTRIAN_DISTANCE:
                     ped_speed = 2.0
@@ -91,7 +91,7 @@ class SafetyAnalyzer:
                         time_to_collision = real_distance / relative_speed
                         
                         if time_to_collision <= self.COLLISION_WARNING_TIME:
-                            safety_status = "COLLISION WARNING"
+                            safety_status = "Unsafe"
                             violations.append(f"Vehicle too close to pedestrian ({real_distance:.2f}m)"
                             collision_warning = True
                         else:
