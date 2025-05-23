@@ -270,9 +270,9 @@ def main():
     real_time_detection_page()
 
 def real_time_detection_page():
-    st.header("🎥 Real-time Detection")
+    st.header("Safety Detection")
     
-    st.subheader("🛡️ Enhanced Safety Monitoring")
+    st.subheader("Safety Information")
     col1, col2, col3 = st.columns(3)
     with col1:
         st.info("**2-Second Rule**: Maintain 2-3 second following distance")
@@ -434,13 +434,13 @@ def real_time_detection_page():
                         
                         col1, col2, col3, col4 = st.columns(4)
                         with col1:
-                            st.metric("🚨 Collisions", collision_frames, delta="Critical" if collision_frames > 0 else None)
+                            st.metric("Collisions", collision_frames, delta="Critical" if collision_frames > 0 else None)
                         with col2:
-                            st.metric("⚠️ Warnings", warning_frames, delta="High Risk" if warning_frames > 0 else None)
+                            st.metric("Warnings", warning_frames, delta="High Risk" if warning_frames > 0 else None)
                         with col3:
-                            st.metric("⚠️ Unsafe", unsafe_frames)
+                            st.metric("Unsafe", unsafe_frames)
                         with col4:
-                            st.metric("✅ Safe", safe_frames)
+                            st.metric("Safe", safe_frames)
                         
                         st.subheader("🎞️ Processed Frames with Advanced Safety Analysis")
                         
@@ -458,7 +458,7 @@ def real_time_detection_page():
                                 elif status == "COLLISION WARNING":
                                     st.warning(f"{status}")
                                 elif status == "Safe":
-                                    st.success(f"✅ {status}")
+                                    st.success(f"{status}")
                                 else:
                                     st.warning(f"{status}")
                                 
