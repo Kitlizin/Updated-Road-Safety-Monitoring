@@ -324,13 +324,13 @@ def real_time_detection_page():
                 
                 st.subheader("Safety Analysis")
                 if safety_status == "COLLISION DETECTED":
-                    st.error("🚨 COLLISION DETECTED - Immediate danger!")
+                    st.error("COLLISION DETECTED - Immediate danger!")
                 elif safety_status == "COLLISION WARNING":
-                    st.warning("⚠️ COLLISION WARNING - Take immediate action!")
+                    st.warning("COLLISION WARNING - Take immediate action!")
                 elif safety_status == "Safe":
                     st.success("✅ Safe - No violations detected")
                 else:
-                    st.warning("⚠️ Unsafe - Violations detected")
+                    st.warning("Unsafe - Violations detected")
                 
                 if violations:
                     st.subheader("Violations Detected")
@@ -368,7 +368,7 @@ def real_time_detection_page():
             with col2:
                 frame_interval = st.slider("Frame interval (process every nth frame)", 1, 30, 5)
             
-            if st.button("🎬 Process Video Frames"):
+            if st.button("Process Video Frames"):
                 if not CV2_AVAILABLE:
                     st.error("OpenCV is required for video processing.")
                     return
@@ -442,7 +442,7 @@ def real_time_detection_page():
                         with col4:
                             st.metric("Safe", safe_frames)
                         
-                        st.subheader("🎞️ Processed Frames with Advanced Safety Analysis")
+                        st.subheader("Processed Frames with Advanced Safety Analysis")
                         
                         for i, (frame_num, frame_img, status, violations) in enumerate(processed_frames):
                             st.markdown(f"### Frame {frame_num}")
