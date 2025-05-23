@@ -92,7 +92,7 @@ class SafetyAnalyzer:
                         
                         if time_to_collision <= self.COLLISION_WARNING_TIME:
                             safety_status = "COLLISION WARNING"
-                            violations.append(f"COLLISION WARNING - {time_to_collision:.1f}s until potential impact!")
+                            violations.append(f"Vehicle too close to pedestrian ({real_distance:.2f}m)"
                             collision_warning = True
                         else:
                             safety_status = "Unsafe"
