@@ -92,7 +92,7 @@ class SafetyAnalyzer:
                         
                         if time_to_collision <= self.COLLISION_WARNING_TIME:
                             safety_status = "COLLISION WARNING"
-                            violations.append(f"⚠COLLISION WARNING - {time_to_collision:.1f}s until potential impact!")
+                            violations.append(f"COLLISION WARNING - {time_to_collision:.1f}s until potential impact!")
                             collision_warning = True
                         else:
                             safety_status = "Unsafe"
@@ -118,7 +118,7 @@ class SafetyAnalyzer:
                     if time_gap <= self.COLLISION_WARNING_TIME and real_distance < 5:
                         if not collision_detected and not collision_warning:
                             safety_status = "COLLISION WARNING"
-                        violations.append(f"⚠COLLISION WARNING - {time_gap:.1f}s gap between vehicles!")
+                        violations.append(f"COLLISION WARNING - {time_gap:.1f}s gap between vehicles!")
                         collision_warning = True
                     elif time_gap < self.TAILGATING_TIME and real_distance < 15: 
                         if safety_status == "Safe":
@@ -143,7 +143,7 @@ def load_yolo_model():
         return "demo_mode"
         
     try:
-        model = YOLO('FinalModel_yolov8.pt') 
+        model = YOLO('yolov8n.pt') 
         st.success("✅ Model loaded successfully!")
         return model
     except Exception as e:
@@ -252,27 +252,29 @@ def draw_safety_annotations(image, detections, safety_status, violations):
     
     for i, violation in enumerate(violations):
         y_pos = 80 + i * 35
-        text_size = cv2.getTextSize(violation[:60], cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
+        # Remove emojis from violation text before displaying
+        clean_violation = violation.replace("⚠", "").replace("🚨", "").strip()
+        text_size = cv2.getTextSize(clean_violation[:60], cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
         cv2.rectangle(img_copy, (8, y_pos - 25), (text_size[0] + 15, y_pos + 5), (0, 0, 0), -1)
         
         violation_color = (0, 0, 255) if "COLLISION" in violation else (0, 165, 255)
-        cv2.putText(img_copy, violation[:60], (10, y_pos), 
+        cv2.putText(img_copy, clean_violation[:60], (10, y_pos), 
                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, violation_color, 2)
     
     return img_copy
 
 def main():
     st.title("🚗 Road Safety Monitoring")
-    st.markdown("Reckless Driving Behavior Recognition For Road Safety Monitoring")
+    st.markdown("**Research Title:** Reckless Driving Behavior Recognition For Road Safety Monitoring")
     
     st.session_state.model = load_yolo_model()
     
     real_time_detection_page()
 
 def real_time_detection_page():
-    st.header("Safety Detection")
+    st.header("🎥 Real-time Detection")
     
-    st.subheader("Safety Information")
+    st.subheader("🛡️ Enhanced Safety Monitoring")
     col1, col2, col3 = st.columns(3)
     with col1:
         st.info("**2-Second Rule**: Maintain 2-3 second following distance")
@@ -324,21 +326,21 @@ def real_time_detection_page():
                 
                 st.subheader("Safety Analysis")
                 if safety_status == "COLLISION DETECTED":
-                    st.error("COLLISION DETECTED - Immediate danger!")
+                    st.error("🚨 COLLISION DETECTED - Immediate danger!")
                 elif safety_status == "COLLISION WARNING":
-                    st.warning("COLLISION WARNING - Take immediate action!")
+                    st.warning("⚠️ COLLISION WARNING - Take immediate action!")
                 elif safety_status == "Safe":
                     st.success("✅ Safe - No violations detected")
                 else:
-                    st.warning("Unsafe - Violations detected")
+                    st.warning("⚠️ Unsafe - Violations detected")
                 
                 if violations:
                     st.subheader("Violations Detected")
                     for violation in violations:
                         if "COLLISION DETECTED" in violation:
-                            st.error(f"{violation}")
+                            st.error(f"🚨 {violation}")
                         elif "COLLISION WARNING" in violation:
-                            st.warning(f"{violation}")
+                            st.warning(f"⚠️ {violation}")
                         else:
                             st.write(f"• {violation}")
                 
@@ -368,7 +370,7 @@ def real_time_detection_page():
             with col2:
                 frame_interval = st.slider("Frame interval (process every nth frame)", 1, 30, 5)
             
-            if st.button("Process Video Frames"):
+            if st.button("🎬 Process Video Frames"):
                 if not CV2_AVAILABLE:
                     st.error("OpenCV is required for video processing.")
                     return
@@ -454,13 +456,13 @@ def real_time_detection_page():
                             
                             with col2:
                                 if status == "COLLISION DETECTED":
-                                    st.error(f"{status}")
+                                    st.error(f"COLLISION DETECTED")
                                 elif status == "COLLISION WARNING":
-                                    st.warning(f"{status}")
+                                    st.warning(f"COLLISION WARNING")
                                 elif status == "Safe":
-                                    st.success(f"{status}")
+                                    st.success(f"Safe")
                                 else:
-                                    st.warning(f"{status}")
+                                    st.warning(f"Unsafe")
                                 
                                 frame_result = safety_results[i]
                                 st.write(f"**Objects Detected:** {frame_result['Objects']}")
@@ -470,14 +472,16 @@ def real_time_detection_page():
                                 if violations:
                                     st.write("**Safety Alerts:**")
                                     for violation in violations:
+                                        # Remove emojis from violation text in display
+                                        clean_violation = violation.replace("🚨", "").replace("⚠️", "").replace("⚠", "").strip()
                                         if "COLLISION DETECTED" in violation:
-                                            st.error(f"{violation}")
+                                            st.error(f"{clean_violation}")
                                         elif "COLLISION WARNING" in violation:
-                                            st.warning(f"{violation}")
+                                            st.warning(f"{clean_violation}")
                                         else:
-                                            st.write(f"• {violation}")
+                                            st.write(f"• {clean_violation}")
                                 else:
-                                    st.write("**✅ No safety violations detected**")
+                                    st.write("**No safety violations detected**")
                             
                             st.divider()
                         
