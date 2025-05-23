@@ -143,7 +143,7 @@ def load_yolo_model():
         return "demo_mode"
         
     try:
-        model = YOLO('FinalModel_yolov8.pt') 
+        model = YOLO('yolov8n.pt') 
         st.success("✅ Model loaded successfully!")
         return model
     except Exception as e:
