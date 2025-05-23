@@ -304,7 +304,7 @@ def real_time_detection_page():
             
             with col1:
                 st.subheader("Original Image")
-                st.image(image, use_column_width=True)
+                st.image(image, use_container_width=True)
             
             with col2:
                 st.subheader("Detection Results")
@@ -317,9 +317,9 @@ def real_time_detection_page():
                     
                     if CV2_AVAILABLE:
                         annotated_img = draw_safety_annotations(img_array, detections, safety_status, violations)
-                        st.image(annotated_img, use_column_width=True)
+                        st.image(annotated_img, use_container_width=True)
                     else:
-                        st.image(img_array, use_column_width=True)
+                        st.image(img_array, use_container_width=True)
                         st.warning("OpenCV not available - showing original image")
                 
                 st.subheader("Safety Analysis")
@@ -450,7 +450,7 @@ def real_time_detection_page():
                             col1, col2 = st.columns([2, 1])
                             
                             with col1:
-                                st.image(frame_img, use_column_width=True)
+                                st.image(frame_img, use_container_width=True)
                             
                             with col2:
                                 if status == "COLLISION DETECTED":
